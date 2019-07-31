@@ -1,0 +1,38 @@
+---
+- name: Converge
+  hosts: all
+  become: yes
+
+  pre_tasks:
+    - name: Install OpenSSH server
+      package:
+        name: openssh-server
+        state: present
+
+    # usually OpenSSH is already running, so we recreate the same scenario.
+    - name: Start OpenSSH server
+      service:
+        name: ssh
+        state: started
+        enabled: yes
+
+    # fail2ban requires it, but it won't be created until the first ssh connection try.
+    # So we create it :)
+    - name: Check for auth.log presence
+      stat:
+        path: "/var/log/auth.log"
+      register: auth_log
+
+    - name: Create auth.log manually
+      file:
+        path: "/var/log/auth.log"
+        owner: root
+        group: root
+        mode: '640'
+        state: touch
+      when: not auth_log.stat.exists
+
+  roles:
+    - role: ansible-role-security
+      vars:
+        security_ssh_port: 6666
